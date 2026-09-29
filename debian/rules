@@ -9,5 +9,5 @@
 %:
 	dh $@ --with yang
 
-override_dh_systemd_enable:
-	dh_systemd_enable --package vyatta-service-bridge-mstp --name=vyatta-mstpd
+override_dh_installsystemd:
+	dh_installsystemd --package vyatta-service-bridge-mstp --name=vyatta-mstpd
