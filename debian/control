@@ -17,12 +17,12 @@ Depends:
  busybox,
  libvyatta-bridge-perl (>= ${source:Version}),
  vplane-config,
- vplane-config-npf,
  vyatta-cfg,
  vyatta-interfaces (>= 0.5),
  vyatta-intf-create,
  ${misc:Depends},
  ${perl:Depends}
+Recommends: vplane-config-npf
 Description: Vyatta bridge configuration templates and scripts
  Vyatta bridge CLI configuration and operational templates and scripts.
 
