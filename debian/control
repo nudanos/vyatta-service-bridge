@@ -16,7 +16,7 @@ Depends:
  bridge-utils,
  busybox,
  libvyatta-bridge-perl (>= ${source:Version}),
- vplane-config,
+ vplane-config | vyatta-kernel-forwarding,
  vyatta-cfg,
  vyatta-interfaces (>= 0.5),
  vyatta-intf-create,
