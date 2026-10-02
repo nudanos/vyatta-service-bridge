@@ -11,3 +11,8 @@
 
 override_dh_installsystemd:
 	dh_installsystemd --package vyatta-service-bridge-mstp --name=vyatta-mstpd
+
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	prove tests/
+endif

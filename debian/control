@@ -4,7 +4,8 @@ Priority: optional
 Maintainer: NuDanOS Maintainers <jon@fernandez.tech>
 Build-Depends: debhelper-compat (= 13),
  pkg-config,
- dh-yang
+ dh-yang,
+ libfile-slurp-perl <!nocheck>
 Standards-Version: 4.7.2
 Rules-Requires-Root: no
 Vcs-Git: https://github.com/nudanos/vyatta-service-bridge.git

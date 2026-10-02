@@ -27,75 +27,82 @@ use warnings;
 
 use lib '/opt/vyatta/share/perl5/';
 use File::Slurp qw( write_file );
-use Vyatta::Interface;
-use Vyatta::Config;
 
 our $VERSION = 1.00;
+
+my ( $intf, $cfg );
+
+main() unless caller;
 
 #
 # main
 #
-if ( $#ARGV != 1 ) {
-    die "Usage: vyatta-bridge.pl {SET|DELETE} <ifname>\n";
-}
+sub main {
+    require Vyatta::Interface;
+    require Vyatta::Config;
 
-my ( $action, $ifname ) = @ARGV;
-
-# Get bridge information from configuration
-my $intf = Vyatta::Interface->new($ifname);
-if ( !$intf ) {
-    die "Unknown interface type $ifname\n";
-}
-
-my $cfg = Vyatta::Config->new();
-$cfg->setLevel( $intf->path() );
-
-my $oldbridge = $cfg->returnOrigValue('bridge-group bridge');
-my $newbridge = $cfg->returnValue('bridge-group bridge');
-
-if ( !defined $oldbridge && !defined $newbridge ) {
-
-    # Nothing to do -- updating bridge-group without a bridge interface
-    printf "Nothing to do\n";
-    exit 0;
-}
-
-if ( !defined $oldbridge ) {
-    if ( defined $cfg->returnValue('bond-group') ) {
-        die
-"Error: can not add interface $ifname that is part of bond-group to bridge\n";
+    if ( $#ARGV != 1 ) {
+        die "Usage: vyatta-bridge.pl {SET|DELETE} <ifname>\n";
     }
 
-    my @address = $cfg->returnValues('address');
-    if (@address) {
-        die "Error: Can not add interface $ifname with addresses to bridge\n";
+    my ( $action, $ifname ) = @ARGV;
+
+    # Get bridge information from configuration
+    $intf = Vyatta::Interface->new($ifname);
+    if ( !$intf ) {
+        die "Unknown interface type $ifname\n";
     }
 
-    my @vrrp = $cfg->listNodes('vrrp vrrp-group');
-    if (@vrrp) {
-        die "Error: Can not add interface $ifname with VRRP to bridge\n";
+    $cfg = Vyatta::Config->new();
+    $cfg->setLevel( $intf->path() );
+
+    my $oldbridge = $cfg->returnOrigValue('bridge-group bridge');
+    my $newbridge = $cfg->returnValue('bridge-group bridge');
+
+    if ( !defined $oldbridge && !defined $newbridge ) {
+
+        # Nothing to do -- updating bridge-group without a bridge interface
+        printf "Nothing to do\n";
+        exit 0;
     }
 
-    printf "Adding interface $ifname to bridge $newbridge\n";
-    add_bridge_port( $newbridge, $ifname );
+    if ( !defined $oldbridge ) {
+        if ( defined $cfg->returnValue('bond-group') ) {
+            die
+    "Error: can not add interface $ifname that is part of bond-group to bridge\n";
+        }
+
+        my @address = $cfg->returnValues('address');
+        if (@address) {
+            die "Error: Can not add interface $ifname with addresses to bridge\n";
+        }
+
+        my @vrrp = $cfg->listNodes('vrrp vrrp-group');
+        if (@vrrp) {
+            die "Error: Can not add interface $ifname with VRRP to bridge\n";
+        }
+
+        printf "Adding interface $ifname to bridge $newbridge\n";
+        add_bridge_port( $newbridge, $ifname );
+
+        exit 0;
+    }
+
+    if ( !defined $newbridge ) {
+        printf "Removing interface $ifname from bridge $oldbridge\n";
+        remove_bridge_port( $oldbridge, $ifname );
+        exit 0;
+    }
+
+    if ( $oldbridge ne $newbridge ) {
+        printf "Moving interface $ifname from $oldbridge to $newbridge\n";
+        remove_bridge_port( $oldbridge, $ifname );
+        add_bridge_port( $newbridge, $ifname );
+        exit 0;
+    }
 
     exit 0;
 }
-
-if ( !defined $newbridge ) {
-    printf "Removing interface $ifname from bridge $oldbridge\n";
-    remove_bridge_port( $oldbridge, $ifname );
-    exit 0;
-}
-
-if ( $oldbridge ne $newbridge ) {
-    printf "Moving interface $ifname from $oldbridge to $newbridge\n";
-    remove_bridge_port( $oldbridge, $ifname );
-    add_bridge_port( $newbridge, $ifname );
-    exit 0;
-}
-
-exit 0;
 
 #
 # Subroutines
@@ -126,17 +133,24 @@ sub add_bridge_port {
     system("ip link set dev $port master $bridge") == 0
       or exit 1;
 
-    # Turn off kernel l2 multicast flooding, dataplane implements flooding.
-    write_file( "/sys/devices/virtual/net/$bridge/brif/$port/multicast_flood",
-        0 ) == 1
-      or exit 1;
-    write_file( "/sys/devices/virtual/net/$bridge/brif/$port/broadcast_flood",
-        0 ) == 1
+    set_port_flooding( $bridge, $port, -e '/opt/vyatta/etc/kernel-forwarding', '/sys' )
       or exit 1;
 
     add_bridge_port_bridge_macs( $bridge, $port );
     system("/opt/vyatta/sbin/vyatta-ipv6-disable", "create", "$port");
     return;
+}
+
+# The DPDK dataplane floods, so DANOS turned kernel flooding off on bridge
+# ports. With kernel forwarding the kernel must flood (ARP broadcasts).
+sub set_port_flooding {
+    my ( $bridge, $port, $kernel_forwarding, $sys ) = @_;
+    my $val = $kernel_forwarding ? 1 : 0;
+    for my $f (qw(multicast_flood broadcast_flood)) {
+        write_file( "$sys/devices/virtual/net/$bridge/brif/$port/$f", $val ) == 1
+          or return 0;
+    }
+    return 1;
 }
 
 sub remove_bridge_port {
@@ -162,3 +176,5 @@ sub remove_bridge_port {
     }
     return;
 }
+
+1;

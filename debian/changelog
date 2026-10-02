@@ -1,3 +1,14 @@
+vyatta-service-bridge (2.16) trixie; urgency=medium
+
+  * vyatta-bridge.pl: keep kernel multicast/broadcast flooding on for
+    bridge ports when the system forwards in the kernel
+    (/opt/vyatta/etc/kernel-forwarding); DANOS turned it off because the
+    DPDK dataplane floods. The script can now be loaded for tests, which
+    run at build time.
+  * Kernel forwarding satisfies vplane-config.
+
+ -- NuDanOS Maintainers <jon@fernandez.tech>  Fri, 02 Oct 2026 08:43:50 -0700
+
 vyatta-service-bridge (2.15) trixie; urgency=medium
 
   * Port to Debian 13 (trixie): debhelper-compat 13, Standards-Version 4.7.2, Rules-Requires-Root, NuDanOS Vcs.
